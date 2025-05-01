@@ -159,6 +159,10 @@ if ( ! class_exists( 'Omakase_Sync_Updater' ) ) {
 			$wp_filesystem->move( $result['destination'], $plugin_folder );
 			$result['destination'] = $plugin_folder;
 
+			// アップデート通知を消すためにトランジェントをクリア
+			delete_site_transient( 'update_plugins' );
+			wp_update_plugins();
+
 			// Reactivate plugin if it was active.
 			if ( is_plugin_active( $this->plugin_slug ) ) {
 				activate_plugin( $this->plugin_slug );
