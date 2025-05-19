@@ -31,21 +31,21 @@ function omakase_setup_cron_recovery() {
 }
 
 /**
- * 1分ごとのCronスケジュールを追加
+ * 5分ごとのCronスケジュールを追加
  */
-add_filter( 'cron_schedules', 'omakase_add_minute_cron' );
-function omakase_add_minute_cron( $schedules ) {
-	// 'every_minute' というキーで1分ごとのスケジュールを登録
-	$schedules['every_minute'] = array(
-		'interval' => 60,            // 1分 (秒)
-		'display'  => __( 'Every Minute' ),
+add_filter( 'cron_schedules', 'omakase_add_five_minutes_cron' );
+function omakase_add_five_minutes_cron( $schedules ) {
+	// 'every_five_minutes' というキーで5分ごとのスケジュールを登録
+	$schedules['every_five_minutes'] = array(
+		'interval' => 300,            // 5分 (秒)
+		'display'  => __( 'Every Five Minutes' ),
 	);
 	return $schedules;
 }
 
 /**
  * CRONの設定を確認・修復する
- * - 'every_minute' スケジュールが存在するか確認
+ * - 'every_five_minutes' スケジュールが存在するか確認
  * - 'omakase_hourly_sync_event' イベントが予約されているか確認
  * - 問題があれば再登録する
  */
@@ -65,21 +65,21 @@ function omakase_verify_cron_setup() {
 	// 既存のCRONスケジュールを取得
 	$schedules = wp_get_schedules();
 	
-	// 'every_minute'スケジュールが存在しない場合、追加する
-	if ( ! isset( $schedules['every_minute'] ) ) {
+	// 'every_five_minutes'スケジュールが存在しない場合、追加する
+	if ( ! isset( $schedules['every_five_minutes'] ) ) {
 		// filter_hooksでcron_schedulesに登録されたフィルターを取得
 		global $wp_filter;
-		if ( ! isset( $wp_filter['cron_schedules'] ) || ! has_filter( 'cron_schedules', 'omakase_add_minute_cron' ) ) {
+		if ( ! isset( $wp_filter['cron_schedules'] ) || ! has_filter( 'cron_schedules', 'omakase_add_five_minutes_cron' ) ) {
 			// フィルターが存在しない場合は再登録
-			add_filter( 'cron_schedules', 'omakase_add_minute_cron' );
+			add_filter( 'cron_schedules', 'omakase_add_five_minutes_cron' );
 			$recovery_needed = true;
-			error_log( 'Omakase Sync: Cron schedule "every_minute" was missing and has been re-registered.' );
+			error_log( 'Omakase Sync: Cron schedule "every_five_minutes" was missing and has been re-registered.' );
 		}
 	}
 
 	// 'omakase_hourly_sync_event'イベントが予約されていない場合、登録する
 	if ( ! wp_next_scheduled( 'omakase_hourly_sync_event' ) ) {
-		wp_schedule_event( time(), 'every_minute', 'omakase_hourly_sync_event' );
+		wp_schedule_event( time(), 'every_five_minutes', 'omakase_hourly_sync_event' );
 		$recovery_needed = true;
 		error_log( 'Omakase Sync: Cron event "omakase_hourly_sync_event" was missing and has been re-scheduled.' );
 	}
@@ -92,13 +92,13 @@ function omakase_verify_cron_setup() {
 
 /**
  * プラグイン有効化時の処理
- *  - 1分ごとのWP-Cronスケジュールイベントを登録
+ *  - 5分ごとのWP-Cronスケジュールイベントを登録
  */
 register_activation_hook( __FILE__, 'omakase_register_cron_event' );
 function omakase_register_cron_event() {
 	if ( ! wp_next_scheduled( 'omakase_hourly_sync_event' ) ) {
-		// スケジュールの間隔を 'every_minute' に変更
-		wp_schedule_event( time(), 'every_minute', 'omakase_hourly_sync_event' );
+		// スケジュールの間隔を 'every_five_minutes' に変更
+		wp_schedule_event( time(), 'every_five_minutes', 'omakase_hourly_sync_event' );
 	}
 }
 
@@ -115,7 +115,7 @@ function omakase_clear_cron_event() {
 }
 
 /**
- * 1分ごとに呼ばれる関数
+ * 5分ごとに呼ばれる関数
  *  - 親サーバへWordPressバージョン、プラグイン一覧を送信
  */
 add_action( 'omakase_hourly_sync_event', 'omakase_send_site_data_to_parent' );
