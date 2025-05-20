@@ -17,6 +17,20 @@ require_once __DIR__ . '/class-omakase-sync-updater.php';
 new Omakase_Sync_Updater( __FILE__ );
 
 /**
+ * CRONスケジュール・イベントの自動修復を設定
+ */
+add_action( 'plugins_loaded', 'omakase_setup_cron_recovery' );
+function omakase_setup_cron_recovery() {
+	// admin_init は管理画面でのみ実行されるが、頻度も適度で最も確実に実行される
+	add_action( 'admin_init', 'omakase_verify_cron_setup' );
+	
+	// フロントエンドでも機会的に確認する (毎回ではなく低頻度で)
+	if ( ! is_admin() && mt_rand( 1, 100 ) <= 5 ) { // 5% の確率で実行
+		add_action( 'wp_loaded', 'omakase_verify_cron_setup' );
+	}
+}
+
+/**
  * 5分ごとのCronスケジュールを追加
  */
 add_filter( 'cron_schedules', 'omakase_add_five_minutes_cron' );
@@ -27,6 +41,53 @@ function omakase_add_five_minutes_cron( $schedules ) {
 		'display'  => __( 'Every Five Minutes' ),
 	);
 	return $schedules;
+}
+
+/**
+ * CRONの設定を確認・修復する
+ * - 'every_five_minutes' スケジュールが存在するか確認
+ * - 'omakase_hourly_sync_event' イベントが予約されているか確認
+ * - 問題があれば再登録する
+ */
+function omakase_verify_cron_setup() {
+	// プラグインが有効かどうか確認するため、必要な関数を読み込む
+	if ( ! function_exists( 'is_plugin_active' ) ) {
+		include_once ABSPATH . 'wp-admin/includes/plugin.php';
+	}
+	
+	// プラグインが有効でない場合は何もしない
+	if ( ! is_plugin_active( plugin_basename( __FILE__ ) ) ) {
+		return;
+	}
+
+	$recovery_needed = false;
+	
+	// 既存のCRONスケジュールを取得
+	$schedules = wp_get_schedules();
+	
+	// 'every_five_minutes'スケジュールが存在しない場合、追加する
+	if ( ! isset( $schedules['every_five_minutes'] ) ) {
+		// filter_hooksでcron_schedulesに登録されたフィルターを取得
+		global $wp_filter;
+		if ( ! isset( $wp_filter['cron_schedules'] ) || ! has_filter( 'cron_schedules', 'omakase_add_five_minutes_cron' ) ) {
+			// フィルターが存在しない場合は再登録
+			add_filter( 'cron_schedules', 'omakase_add_five_minutes_cron' );
+			$recovery_needed = true;
+			error_log( 'Omakase Sync: Cron schedule "every_five_minutes" was missing and has been re-registered.' );
+		}
+	}
+
+	// 'omakase_hourly_sync_event'イベントが予約されていない場合、登録する
+	if ( ! wp_next_scheduled( 'omakase_hourly_sync_event' ) ) {
+		wp_schedule_event( time(), 'every_five_minutes', 'omakase_hourly_sync_event' );
+		$recovery_needed = true;
+		error_log( 'Omakase Sync: Cron event "omakase_hourly_sync_event" was missing and has been re-scheduled.' );
+	}
+	
+	// 修復が必要だった場合、WP-Cronのスケジュールを更新する
+	if ( $recovery_needed ) {
+		wp_clear_scheduled_hook( 'wp_cron_events_clean' ); // 念のため清掃イベントを再設定
+	}
 }
 
 /**
