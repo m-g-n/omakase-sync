@@ -1,0 +1,3 @@
+# Exclude files from generated archives
+.github export-ignore
+.gitattributes export-ignore
