@@ -16,6 +16,6 @@ jobs:
       - name: Backlog Notify
         uses: bicstone/backlog-notify@v4
         with:
-          project_key: PROJECT_KEY
-          api_host: example.backlog.jp
+          project_key: MAINTEN_SERV
+          api_host: megane9988.backlog.jp
           api_key: ${{ secrets.BACKLOG_API_KEY }}
