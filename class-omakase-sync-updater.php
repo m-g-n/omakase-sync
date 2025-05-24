@@ -98,6 +98,13 @@ if ( ! class_exists( 'Omakase_Sync_Updater' ) ) {
 			if ( ! $this->github_api_result ) {
 				return '';
 			}
+			// まず 'omakase-sync.zip' という固定名のファイルを探す
+			foreach ( $this->github_api_result->assets ?? array() as $asset ) {
+				if ( isset( $asset->browser_download_url ) && $asset->name === 'omakase-sync.zip' ) {
+					return $asset->browser_download_url;
+				}
+			}
+			// 固定名がなければ、拡張子が .zip のファイルを探す（既存の挙動）
 			foreach ( $this->github_api_result->assets ?? array() as $asset ) {
 				if ( isset( $asset->browser_download_url ) && str_ends_with( $asset->name, '.zip' ) ) {
 					return $asset->browser_download_url;
