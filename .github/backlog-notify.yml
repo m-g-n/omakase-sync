@@ -1,0 +1,21 @@
+name: Backlog Notify
+
+on:
+  push:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - ready_for_review
+      - closed
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Backlog Notify
+        uses: bicstone/backlog-notify@v4
+        with:
+          project_key: PROJECT_KEY
+          api_host: example.backlog.jp
+          api_key: ${{ secrets.BACKLOG_API_KEY }}
