@@ -1,7 +1,6 @@
 name: Backlog Notify
 
 on:
-  commit:
   push:
   pull_request:
     types:
