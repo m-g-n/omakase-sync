@@ -31,6 +31,14 @@ Omakase Syncは、WordPressのバージョンやインストール済みプラ�
 
 ## 更新履歴
 
+### 0.2.0
+- クロンスケジュールの自動修復機能を追加
+- 送信間隔を5分ごとに変更
+
+### 0.1.0
+- GitHub経由の自動アップデート機能の追加
+- コードの最適化と安定性の向上
+
 ### 0.0.4
 - 細かなバグ修正と安定性の向上
 
@@ -45,7 +53,7 @@ Omakase Syncは、WordPressのバージョンやインストール済みプラ�
 
 ## リンク
 
-- [GitHub リポジトリ](https://github.com/megane9988/omakase-sync)
+- [GitHub リポジトリ](https://github.com/m-g-n/omakase-sync)
 
 ## 開発者
 
