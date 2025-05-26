@@ -149,22 +149,27 @@ if ( ! class_exists( 'Omakase_Sync_Updater' ) ) {
 		}
 
 		public function post_install( $true, $hook_extra, $result ) {
-			// Ensure slug/data are available even in fresh context after unzip.
 			$this->init_plugin_data();
 
 			global $wp_filesystem;
 			$plugin_folder = WP_PLUGIN_DIR . '/' . dirname( $this->plugin_slug );
 
-			// Move unpacked directory to final destination.
+			// 展開されたディレクトリを該当の場所に移動します。
 			$wp_filesystem->move( $result['destination'], $plugin_folder );
 			$result['destination'] = $plugin_folder;
 
-			// アップデート通知を消すためにトランジェントをクリア
-			delete_site_transient( 'update_plugins' );
-			wp_clean_plugins_cache(); // プラグインキャッシュを明示的にクリア
-			wp_update_plugins();
+			// キャッシュされたGitHub APIの結果をクリアして、次の更新チェックが
+			// （たとえそれが非常に近い時間に発生したとしても）新しい情報を取得することを保証します。
+			$this->github_api_result = null;
 
-			// Reactivate plugin if it was active.
+			// プラグイン情報と更新に関連するWordPressの内部キャッシュをクリアします。
+			// これにより、WordPressはプラグインの新しいバージョンを認識できるようになります。
+			wp_clean_plugins_cache( true ); // Force a deep clean of plugin header caches.
+			delete_site_transient( 'update_plugins' ); // Remove the "updates available" information.
+
+			// 更新前にプラグインがアクティブだった場合は再アクティブ化します。
+			// これにより、WordPressが新しいプラグインバージョンを正しく認識し、
+			// （新しいバージョンのために再追加された場合の）アクティベーションフックが実行されます。.
 			if ( is_plugin_active( $this->plugin_slug ) ) {
 				activate_plugin( $this->plugin_slug );
 			}
