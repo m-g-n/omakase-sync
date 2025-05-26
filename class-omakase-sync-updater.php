@@ -161,6 +161,7 @@ if ( ! class_exists( 'Omakase_Sync_Updater' ) ) {
 
 			// アップデート通知を消すためにトランジェントをクリア
 			delete_site_transient( 'update_plugins' );
+			wp_clean_plugins_cache(); // プラグインキャッシュを明示的にクリア
 			wp_update_plugins();
 
 			// Reactivate plugin if it was active.
