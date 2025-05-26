@@ -3,7 +3,7 @@
 Plugin Name: Omakase Sync
 Plugin URI:  https://example.com
 Description: 親サーバへWP情報を定期送信
-Version:     0.2.2
+Version:     0.2.3
 Author:      megane9988
 License:     GPLv2 or later
 Text Domain: omakase-sync
