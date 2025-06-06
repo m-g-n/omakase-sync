@@ -28,7 +28,7 @@ jobs:
 
       #composerの実施
       - name: Composer install
-        uses: docker://composer:1.9.1
+        uses: docker://composer:latest
         with:
           args: install
 
