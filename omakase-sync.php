@@ -1,20 +1,32 @@
 <?php
 /*
 Plugin Name: Omakase Sync
-Plugin URI:  https://example.com
+Plugin URI:  https://www.m-g-n.me
 Description: 親サーバへWP情報を定期送信
-Version:     0.2.5
+Version:     0.2.6
 Author:      megane9988
 License:     GPLv2 or later
 Text Domain: omakase-sync
 */
 
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
+/**
+ * include composer files.
+ */
+require_once( __DIR__ . '/vendor/autoload.php'); //自動アップデート用composer.
+
 /**
  * プラグインのアップデートを管理するクラス
  * GitHubの公開リポジトリから最新のリリース情報を取得し、WordPressのアップデート画面に表示する
  */
-require_once __DIR__ . '/class-omakase-sync-updater.php';
-new Omakase_Sync_Updater( __FILE__ );
+// require_once __DIR__ . '/class-omakase-sync-updater.php';
+// new Omakase_Sync_Updater( __FILE__ );
+require_once __DIR__ . '/AutoUpdate.php';
+new OmakaseSync\AutoUpdate();
+
 
 /**
  * CRONスケジュール・イベントの自動修復を設定
