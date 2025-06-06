@@ -1,19 +1,15 @@
 name: Create Release
 
 on:
-  pull_request:
-    types: [closed]
+  push:
     branches:
       - main
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    if: github.event.pull_request.merged == true
-    #nodeのバージョン設定 参考 https://docs.github.com/ja/free-pro-team@latest/actions/guides/building-and-testing-nodejs
-    strategy:
-      matrix:
-        node-version: [18.x]
+    permissions:
+      contents: write # リリース作成に必要
 
     steps:
       - name: Checkout code
@@ -26,20 +22,40 @@ jobs:
           VERSION=$(grep -E "^Version:\s*[0-9]+\.[0-9]+\.[0-9]+" omakase-sync.php | head -1 | sed -E 's/Version:\s*//')
           echo "VERSION=$VERSION" >> $GITHUB_ENV
 
+      # バージョン比較。既存リリースより小さい場合はスキップ
+      - name: バージョン比較
+        id: version_check
+        run: |
+          # 最新リリースタグ取得
+          LATEST_TAG=$(gh release view --json tagName -q .tagName || echo "0.0.0")
+          echo "最新リリースタグ: $LATEST_TAG"
+          echo "今回のバージョン: $VERSION"
+          # 比較
+          if [ "$(printf '%s\n' "$LATEST_TAG" "$VERSION" | sort -V | tail -n1)" != "$VERSION" ]; then
+            echo "バージョンが既存リリース以下のためスキップ"
+            echo "skip_release=true" >> $GITHUB_ENV
+          else
+            echo "skip_release=false" >> $GITHUB_ENV
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       #composerの実施
       - name: Composer install
+        if: env.skip_release != 'true'
         uses: docker://composer:latest
         with:
           args: install
 
       # release作成
       - name: Create Release
+        if: env.skip_release != 'true'
         id: create_release
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ env.VERSION }} # ここでバージョン番号を利用
+          tag_name: ${{ env.VERSION }}
           release_name: ${{ env.VERSION }}
           body: ${{ github.event.pull_request.body }}
           draft: false
