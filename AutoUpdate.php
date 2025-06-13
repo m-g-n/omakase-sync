@@ -19,7 +19,7 @@ class AutoUpdate {
 	 * Constructor.
 	 */
 	public function __construct() {
-		add_action( 'init', array( $this, 'activate_autoupdate' ) );
+		add_action( 'plugins_loaded', array( $this, 'activate_autoupdate' ) );
 	}
 
 	/**
@@ -29,7 +29,7 @@ class AutoUpdate {
 	 */
 	public function activate_autoupdate() {
 		new Updater(
-			'omakase-sync',
+			plugin_basename(__FILE__),
 			'm-g-n',
 			'omakase-sync',
 			[
