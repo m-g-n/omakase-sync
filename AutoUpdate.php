@@ -19,7 +19,7 @@ class AutoUpdate {
 	 * Constructor.
 	 */
 	public function __construct() {
-		add_action( 'plugins_loaded', array( $this, 'activate_autoupdate' ) );
+		add_action( 'init', array( $this, 'activate_autoupdate' ) );
 	}
 
 	/**
@@ -37,7 +37,7 @@ class AutoUpdate {
 				'faq_url' => 'https://www.m-g-n.me',
 				'changelog_url' => 'https://github.com/m-g-n/omakase-sync/',
 				'tested' => '6.8.1', // Tested up WordPress version
-				'requires_php' => '8.0.0', // Requires PHP version
+				'requires_php' => '8.0', // Requires PHP version
 				'requires' => '6.3', // Requires WordPress version
 			]
 		);
