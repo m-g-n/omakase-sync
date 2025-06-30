@@ -3,10 +3,11 @@
 Plugin Name: Omakase Sync
 Plugin URI:  https://www.m-g-n.me
 Description: 親サーバへWP情報を定期送信
-Version:     0.2.15
+Version:     0.2.16
 Author:      megane9988
 License:     GPLv2 or later
 Text Domain: omakase-sync
+Update URI: https://m-g-n.github.io/omakase-sync/update.json
 */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -15,19 +16,12 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 // 定数の宣言
 define( 'OMAKASE_SYNC_PATH', untrailingslashit( plugin_dir_path( __FILE__ ) ) . '/' ); //このプラグインのパス.
-
-
-/**
- * include composer files.
- */
-require_once( OMAKASE_SYNC_PATH . 'vendor/autoload.php'); //自動アップデート用composer.
+define('OMAKASE_SYNC_BASENAME', plugin_basename(OMAKASE_SYNC_PATH));
 
 /**
  * プラグインのアップデートを管理するクラス
- * GitHubの公開リポジトリから最新のリリース情報を取得し、WordPressのアップデート画面に表示する
+ * GitHubページのjsonから最新のリリース情報を取得し、WordPressのアップデート画面に表示する
  */
-// require_once OMAKASE_SYNC_PATH . 'class-omakase-sync-updater.php';
-// new Omakase_Sync_Updater( __FILE__ );
 require_once OMAKASE_SYNC_PATH . 'AutoUpdate.php';
 new OmakaseSync\AutoUpdate();
 

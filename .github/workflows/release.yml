@@ -6,6 +6,9 @@ on:
       - main
 
 jobs:
+  env:
+    ZIP_FILENAME: 'omakase-sync.zip' # ReleaseのZIPファイル名
+
   build:
     runs-on: ubuntu-latest
     permissions:
@@ -40,13 +43,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      #composerの実施
-      - name: Composer install
-        if: env.skip_release != 'true'
-        uses: docker://composer:latest
-        with:
-          args: install
-
       # release作成
       - name: Create Release
         if: env.skip_release != 'true'
@@ -61,12 +57,12 @@ jobs:
           draft: false
           prerelease: false
 
-      # release用のzip作成 https://github.com/marketplace/actions/zip-release
+      # release用のzip作成
       - name: Zip Release
         uses: TheDoctor0/zip-release@0.4.1
         with:
-          filename: 'omakase-sync.zip' # ファイル名
-          exclusions: '*.git* /*node_modules/* .editorconfig /*src/*scss/*' # 除外設定
+          filename: ${{ env.ZIP_FILENAME }}
+          exclusions: '*.git* /*node_modules/* .editorconfig /*src/*scss/*'
           directory: '.'
           path: '.'
           type: 'zip'
@@ -78,7 +74,50 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
-          asset_path: ./omakase-sync.zip
-          asset_name: omakase-sync.zip
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./${{ env.ZIP_FILENAME }}
+          asset_name: ${{ env.ZIP_FILENAME }}
           asset_content_type: application/zip
+
+  update-json:
+    needs: build
+    runs-on: ubuntu-latest
+    if: needs.build.result == 'success' && env.skip_release != 'true'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set version and package url
+        id: set_vars
+        run: |
+          VERSION_NO_V=${{ needs.build.outputs.version }}
+          ZIP_URL="https://github.com/${{ github.repository }}/releases/download/${{ needs.build.outputs.version }}/${{ env.ZIP_FILENAME }}"
+          echo "version=$VERSION_NO_V" >> $GITHUB_OUTPUT
+          echo "package=$ZIP_URL" >> $GITHUB_OUTPUT
+
+      - name: Generate update.json
+        run: |
+          echo "{\"version\": \"${{ steps.set_vars.outputs.version }}\", \"package\": \"${{ steps.set_vars.outputs.package }}\", \"url\": \"https://github.com/${{ github.repository }}\"}" > update.json
+
+      - name: Checkout gh-pages branch
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: gh-pages
+
+      - name: Copy update.json to gh-pages
+        run: |
+          cp update.json gh-pages/update.json
+
+      - name: Commit and push update.json
+        run: |
+          cd gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add update.json
+          git commit -m "Update update.json [skip ci]" || echo "No changes to commit"
+          git pull --rebase
+          git push
