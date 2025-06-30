@@ -17,7 +17,7 @@ class AutoUpdate {
     private $version;
 
     public function __construct() {
-        $plugin_data = get_plugin_data(OMAKASE_SYNC_PATH . DIRECTORY_SEPARATOR . 'plugin-name.php');
+		$plugin_data = get_plugin_data(OMAKASE_SYNC_PATH . DIRECTORY_SEPARATOR . 'plugin-name.php');
 
         $this->plugin_slug = dirname(OMAKASE_SYNC_BASENAME);
         $this->version = $plugin_data['Version'];
