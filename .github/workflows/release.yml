@@ -14,6 +14,11 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write # リリース作成に必要
+    
+    # 出力定義を追加
+    outputs:
+      skip_release: ${{ env.skip_release }}
+      version: ${{ env.VERSION }}
 
     steps:
       - name: Checkout code
@@ -83,7 +88,8 @@ jobs:
   update-json:
     needs: build
     runs-on: ubuntu-latest
-    if: needs.build.result == 'success' && env.skip_release != 'true'
+    # 条件式を修正
+    if: needs.build.result == 'success' && needs.build.outputs.skip_release != 'true'
 
     steps:
       - name: Checkout repository
@@ -94,6 +100,7 @@ jobs:
       - name: Set version and package url
         id: set_vars
         run: |
+          # buildジョブの出力を参照
           VERSION_NO_V=${{ needs.build.outputs.version }}
           ZIP_URL="https://github.com/${{ github.repository }}/releases/download/${{ needs.build.outputs.version }}/${{ env.ZIP_FILENAME }}"
           echo "version=$VERSION_NO_V" >> $GITHUB_OUTPUT
