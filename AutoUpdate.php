@@ -17,9 +17,10 @@ class AutoUpdate {
     private $version;
 
     public function __construct() {
-		$plugin_data = get_plugin_data(OMAKASE_SYNC_PATH . DIRECTORY_SEPARATOR . 'plugin-name.php');
+        $plugin_dir_name =  dirname(OMAKASE_SYNC_BASENAME);
+		$plugin_data = get_plugin_data(OMAKASE_SYNC_PATH . $plugin_dir_name . '.php');
 
-        $this->plugin_slug = dirname(OMAKASE_SYNC_BASENAME);
+        $this->plugin_slug = $plugin_dir_name;
         $this->version = $plugin_data['Version'];
         $this->api_url = $plugin_data['UpdateURI'];
 
