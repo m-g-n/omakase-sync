@@ -16,7 +16,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 // 定数の宣言
 define( 'OMAKASE_SYNC_PATH', untrailingslashit( plugin_dir_path( __FILE__ ) ) . '/' ); //このプラグインのパス.
-define('OMAKASE_SYNC_BASENAME', plugin_basename(OMAKASE_SYNC_PATH));
+define('OMAKASE_SYNC_BASENAME', plugin_basename(__FILE__));
 
 /**
  * プラグインのアップデートを管理するクラス

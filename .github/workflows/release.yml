@@ -5,10 +5,11 @@ on:
     branches:
       - main
 
-jobs:
-  env:
-    ZIP_FILENAME: 'omakase-sync.zip' # ReleaseのZIPファイル名
+# グローバル環境変数を設定
+env:
+  ZIP_FILENAME: 'omakase-sync.zip' # リリース用ZIPファイル名
 
+jobs:
   build:
     runs-on: ubuntu-latest
     permissions:

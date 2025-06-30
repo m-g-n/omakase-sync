@@ -17,7 +17,7 @@ class AutoUpdate {
     private $version;
 
     public function __construct() {
-        $plugin_data = get_plugin_data(OMAKASE_SYNC_PATH);
+		$plugin_data = get_plugin_data(OMAKASE_SYNC_PATH . DIRECTORY_SEPARATOR . 'plugin-name.php');
 
         $this->plugin_slug = dirname(OMAKASE_SYNC_BASENAME);
         $this->version = $plugin_data['Version'];
@@ -52,7 +52,7 @@ class AutoUpdate {
                     'new_version' => $api_response['version'],
                     'package'     => $api_response['package'],
                 ];
-                $transient->response[UPDATE_TEST_PLUGIN_BASENAME] = (object) $plugin_data;
+                $transient->response[OMAKASE_SYNC_BASENAME] = (object) $plugin_data;
             }
         }
         return $transient;
