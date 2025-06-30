@@ -52,7 +52,7 @@ class AutoUpdate {
                     'new_version' => $api_response['version'],
                     'package'     => $api_response['package'],
                 ];
-                $transient->response[UPDATE_TEST_PLUGIN_BASENAME] = (object) $plugin_data;
+                $transient->response[OMAKASE_SYNC_BASENAME] = (object) $plugin_data;
             }
         }
         return $transient;
