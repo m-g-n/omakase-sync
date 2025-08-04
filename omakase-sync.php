@@ -3,7 +3,7 @@
 Plugin Name: Omakase Sync
 Plugin URI:  https://www.m-g-n.me
 Description: 親サーバへWP情報を定期送信
-Version:     0.2.19
+Version:     0.2.20
 Author:      megane9988
 License:     GPLv2 or later
 Text Domain: omakase-sync
@@ -23,8 +23,13 @@ define('OMAKASE_SYNC_BASENAME', plugin_basename(__FILE__));
  * GitHubページのjsonから最新のリリース情報を取得し、WordPressのアップデート画面に表示する
  */
 require_once OMAKASE_SYNC_PATH . 'AutoUpdate.php';
-new OmakaseSync\AutoUpdate();
-
+// 管理画面内のみAutoUpdateを実行
+add_action(
+	'admin_init',
+	function () {
+		new OmakaseSync\AutoUpdate();
+	}
+);
 
 /**
  * CRONスケジュール・イベントの自動修復を設定
