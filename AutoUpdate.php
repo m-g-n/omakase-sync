@@ -10,6 +10,10 @@ namespace OmakaseSync;
 
 /**
  * アップデートの有無の検知及び実施
+ * 
+ * 注意: このクラスは名前空間 OmakaseSync 内にあるため、
+ * WordPress関数やPHP組み込み関数を呼び出す際は、
+ * グローバル名前空間から明示的に呼び出すため \ プレフィックスを使用する。
  */
 class AutoUpdate {
 	private $api_url;
