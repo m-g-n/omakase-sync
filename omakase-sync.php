@@ -201,6 +201,12 @@ function omakase_send_site_data_to_parent() {
 
 	if ( is_wp_error( $response ) ) {
 		error_log( 'Omakase Sync Error: ' . $response->get_error_message() );
+	} else {
+		$status_code = wp_remote_retrieve_response_code( $response );
+		if ( $status_code < 200 || $status_code >= 300 ) {
+			error_log( 'Omakase Sync Error: Unexpected response code: ' . $status_code );
+			error_log( 'Omakase Sync Error: Response Body: ' . wp_remote_retrieve_body( $response ) );
+		}
 	}
 }
 
