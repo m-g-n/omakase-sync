@@ -3,7 +3,7 @@
 Plugin Name: Omakase Sync
 Plugin URI:  https://www.m-g-n.me
 Description: 親サーバへWP情報を定期送信
-Version:     0.2.20
+Version:     0.2.21
 Author:      megane9988
 License:     GPLv2 or later
 Text Domain: omakase-sync
@@ -15,8 +15,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // 定数の宣言
-define( 'OMAKASE_SYNC_PATH', untrailingslashit( plugin_dir_path( __FILE__ ) ) . '/' ); //このプラグインのパス.
-define('OMAKASE_SYNC_BASENAME', plugin_basename(__FILE__));
+define( 'OMAKASE_SYNC_PATH', untrailingslashit( plugin_dir_path( __FILE__ ) ) . '/' ); // このプラグインのパス.
+define( 'OMAKASE_SYNC_BASENAME', plugin_basename( __FILE__ ) );
 
 /**
  * プラグインのアップデートを管理するクラス
@@ -38,7 +38,7 @@ add_action( 'plugins_loaded', 'omakase_setup_cron_recovery' );
 function omakase_setup_cron_recovery() {
 	// admin_init は管理画面でのみ実行されるが、頻度も適度で最も確実に実行される
 	add_action( 'admin_init', 'omakase_verify_cron_setup' );
-	
+
 	// フロントエンドでも機会的に確認する (毎回ではなく低頻度で)
 	if ( ! is_admin() && mt_rand( 1, 100 ) <= 5 ) { // 5% の確率で実行
 		add_action( 'wp_loaded', 'omakase_verify_cron_setup' );
@@ -69,17 +69,17 @@ function omakase_verify_cron_setup() {
 	if ( ! function_exists( 'is_plugin_active' ) ) {
 		include_once ABSPATH . 'wp-admin/includes/plugin.php';
 	}
-	
+
 	// プラグインが有効でない場合は何もしない
 	if ( ! is_plugin_active( plugin_basename( __FILE__ ) ) ) {
 		return;
 	}
 
 	$recovery_needed = false;
-	
+
 	// 既存のCRONスケジュールを取得
 	$schedules = wp_get_schedules();
-	
+
 	// 'every_five_minutes'スケジュールが存在しない場合、追加する
 	if ( ! isset( $schedules['every_five_minutes'] ) ) {
 		// filter_hooksでcron_schedulesに登録されたフィルターを取得
@@ -98,7 +98,7 @@ function omakase_verify_cron_setup() {
 		$recovery_needed = true;
 		error_log( 'Omakase Sync: Cron event "omakase_hourly_sync_event" was missing and has been re-scheduled.' );
 	}
-	
+
 	// 修復が必要だった場合、WP-Cronのスケジュールを更新する
 	if ( $recovery_needed ) {
 		wp_clear_scheduled_hook( 'wp_cron_events_clean' ); // 念のため清掃イベントを再設定
