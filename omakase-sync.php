@@ -177,6 +177,7 @@ function omakase_send_site_data_to_parent() {
 	// 送信データ組み立て
 	$body = array(
 		'wordpress_version' => $wordpress_version,
+		'php_version'       => PHP_VERSION,
 		'plugins'           => $plugins_data,
 	);
 
