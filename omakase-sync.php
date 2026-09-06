@@ -233,11 +233,18 @@ function omakase_settings_page() {
 	if ( isset( $_POST['omakase_save_settings'] ) ) {
 		check_admin_referer( 'omakase_settings_nonce' );
 
-		$site_id = sanitize_text_field( $_POST['omakase_site_id'] );
-		$api_key = sanitize_text_field( $_POST['omakase_api_key'] );
+		$site_id = isset( $_POST['omakase_site_id'] ) ? sanitize_text_field( wp_unslash( $_POST['omakase_site_id'] ) ) : '';
+		$api_key = isset( $_POST['omakase_api_key'] ) ? sanitize_text_field( wp_unslash( $_POST['omakase_api_key'] ) ) : '';
 
 		update_option( 'omakase_site_id', $site_id );
-		update_option( 'omakase_api_key', $api_key );
+
+		// API Keyは画面に表示していないため、空送信は「変更なし」として扱う.
+		// 明示的に削除したい場合はチェックボックスで指示する.
+		if ( '' !== $api_key ) {
+			update_option( 'omakase_api_key', $api_key );
+		} elseif ( isset( $_POST['omakase_clear_api_key'] ) ) {
+			delete_option( 'omakase_api_key' );
+		}
 
 		echo '<div class="updated"><p>設定を保存しました。</p></div>';
 	}
@@ -266,9 +273,20 @@ function omakase_settings_page() {
 						<label for="omakase_api_key">API Key</label>
 					</th>
 					<td>
-						<input type="text" name="omakase_api_key" id="omakase_api_key"
-							value="<?php echo esc_attr( $current_api_key ); ?>"
-							class="regular-text" />
+						<input type="password" name="omakase_api_key" id="omakase_api_key"
+							value=""
+							autocomplete="off"
+							class="regular-text"
+							placeholder="<?php echo esc_attr( '' !== $current_api_key ? '設定済み（変更する場合のみ入力）' : '未設定' ); ?>" />
+						<?php if ( '' !== $current_api_key ) : ?>
+							<p class="description">空欄のまま保存すると、現在のAPI Keyがそのまま維持されます。</p>
+							<p>
+								<label for="omakase_clear_api_key">
+									<input type="checkbox" name="omakase_clear_api_key" id="omakase_clear_api_key" value="1" />
+									保存済みのAPI Keyを削除する
+								</label>
+							</p>
+						<?php endif; ?>
 					</td>
 				</tr>
 			</table>
