@@ -22,7 +22,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # omakase-sync.php からバージョン番号を抽出
       - name: バージョン番号抽出
@@ -94,7 +94,7 @@ jobs:
 
     steps:
       - name: リポジトリをチェックアウト
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }} # トークンを明示的に指定
@@ -112,7 +112,7 @@ jobs:
           echo "{\"version\": \"${{ steps.set_vars.outputs.version }}\", \"package\": \"${{ steps.set_vars.outputs.package }}\", \"url\": \"https://github.com/${{ github.repository }}\"}" > update.json
 
       - name: gh-pagesブランチをチェックアウト
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: gh-pages
           path: gh-pages
