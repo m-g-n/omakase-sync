@@ -22,7 +22,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@master
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       # omakase-sync.php からバージョン番号を抽出
       - name: バージョン番号抽出
@@ -53,7 +53,7 @@ jobs:
       - name: Create Release
         if: env.skip_release != 'true'
         id: create_release
-        uses: actions/create-release@v1
+        uses: actions/create-release@0cb9c9b65d5d1901c1f53e5e66eaf4afd303e70e # v1 (archived)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -65,7 +65,7 @@ jobs:
 
       # release用のzip作成
       - name: Zip Release
-        uses: TheDoctor0/zip-release@0.4.1
+        uses: TheDoctor0/zip-release@a1afcab9c664c9976ac398fa831eac67bed1eb0e # 0.4.1
         with:
           filename: ${{ env.ZIP_FILENAME }}
           exclusions: '*.git* /*node_modules/* .editorconfig /*src/*scss/*'
@@ -76,7 +76,7 @@ jobs:
       # releaseにzipファイルを添付
       - name: Upload Release Asset
         id: upload-release-asset
-        uses: actions/upload-release-asset@v1
+        uses: actions/upload-release-asset@e8f9f06c4b078e705bd2ea027f0926603fc9b4d5 # v1 (archived)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -94,7 +94,7 @@ jobs:
 
     steps:
       - name: リポジトリをチェックアウト
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }} # トークンを明示的に指定
@@ -112,7 +112,7 @@ jobs:
           echo "{\"version\": \"${{ steps.set_vars.outputs.version }}\", \"package\": \"${{ steps.set_vars.outputs.package }}\", \"url\": \"https://github.com/${{ github.repository }}\"}" > update.json
 
       - name: gh-pagesブランチをチェックアウト
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: gh-pages
           path: gh-pages

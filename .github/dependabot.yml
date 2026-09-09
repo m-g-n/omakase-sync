@@ -1,0 +1,9 @@
+version: 2
+updates:
+  # GitHub Actions をSHAピン留めしたまま追従させる
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+    commit-message:
+      prefix: 'chore'
