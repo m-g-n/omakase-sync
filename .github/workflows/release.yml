@@ -65,7 +65,7 @@ jobs:
 
       # release用のzip作成
       - name: Zip Release
-        uses: TheDoctor0/zip-release@a1afcab9c664c9976ac398fa831eac67bed1eb0e # 0.4.1
+        uses: TheDoctor0/zip-release@b57d897cb5d60cb78b51a507f63fa184cfe35554 # 0.7.6
         with:
           filename: ${{ env.ZIP_FILENAME }}
           exclusions: '*.git* /*node_modules/* .editorconfig /*src/*scss/*'
