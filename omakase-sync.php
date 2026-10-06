@@ -75,8 +75,6 @@ function omakase_verify_cron_setup() {
 		return;
 	}
 
-	$recovery_needed = false;
-
 	// 既存のCRONスケジュールを取得
 	$schedules = wp_get_schedules();
 
@@ -87,7 +85,6 @@ function omakase_verify_cron_setup() {
 		if ( ! isset( $wp_filter['cron_schedules'] ) || ! has_filter( 'cron_schedules', 'omakase_add_five_minutes_cron' ) ) {
 			// フィルターが存在しない場合は再登録
 			add_filter( 'cron_schedules', 'omakase_add_five_minutes_cron' );
-			$recovery_needed = true;
 			error_log( 'Omakase Sync: Cron schedule "every_five_minutes" was missing and has been re-registered.' );
 		}
 	}
@@ -95,13 +92,7 @@ function omakase_verify_cron_setup() {
 	// 'omakase_hourly_sync_event'イベントが予約されていない場合、登録する
 	if ( ! wp_next_scheduled( 'omakase_hourly_sync_event' ) ) {
 		wp_schedule_event( time(), 'every_five_minutes', 'omakase_hourly_sync_event' );
-		$recovery_needed = true;
 		error_log( 'Omakase Sync: Cron event "omakase_hourly_sync_event" was missing and has been re-scheduled.' );
-	}
-
-	// 修復が必要だった場合、WP-Cronのスケジュールを更新する
-	if ( $recovery_needed ) {
-		wp_clear_scheduled_hook( 'wp_cron_events_clean' ); // 念のため清掃イベントを再設定
 	}
 }
 
