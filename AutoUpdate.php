@@ -99,6 +99,9 @@ class AutoUpdate {
 				$api_response = json_decode( wp_remote_retrieve_body( $response ), true );
 				// 6時間キャッシュ保存
 				set_site_transient( $cache_key, $api_response, 6 * HOUR_IN_SECONDS );
+			} else {
+				// 失敗時も短時間キャッシュし、管理画面を開くたびに再試行しないようにする
+				set_site_transient( $cache_key, array(), 15 * MINUTE_IN_SECONDS );
 			}
 		}
 
