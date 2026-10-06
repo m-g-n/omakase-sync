@@ -37,12 +37,8 @@ add_action(
 add_action( 'plugins_loaded', 'omakase_setup_cron_recovery' );
 function omakase_setup_cron_recovery() {
 	// admin_init は管理画面でのみ実行されるが、頻度も適度で最も確実に実行される
+	// フロントエンドでは確認しない（管理画面用コードの読み込みや option 書き込みを一般ユーザーのリクエストで起こさないため）
 	add_action( 'admin_init', 'omakase_verify_cron_setup' );
-
-	// フロントエンドでも機会的に確認する (毎回ではなく低頻度で)
-	if ( ! is_admin() && mt_rand( 1, 100 ) <= 5 ) { // 5% の確率で実行
-		add_action( 'wp_loaded', 'omakase_verify_cron_setup' );
-	}
 }
 
 /**
