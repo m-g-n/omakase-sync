@@ -132,24 +132,17 @@ function omakase_clear_cron_event() {
  * 送るのはここに書いた項目だけ（許可リスト方式）。サイトヘルスの情報には
  * サーバーの絶対パスや DB の接続情報なども含まれるため、まるごとは送らない。
  * WP_Debug_Data::debug_data() は WordPress.org への通信を伴い重いので使わない。
+ * 項目を増やすときは、ここに足す。
  *
  * 管理者メールアドレスを含むため、ログには出さないこと。
  *
  * @return array 環境情報
  */
 function omakase_collect_environment() {
-	global $wpdb;
-
-	// db_server_info() は WordPress 5.5 から.
-	$db_server = method_exists( $wpdb, 'db_server_info' ) ? $wpdb->db_server_info() : $wpdb->db_version();
-
 	return array(
-		'schema_version'   => OMAKASE_SYNC_ENVIRONMENT_SCHEMA_VERSION,
-		'php_version'      => PHP_VERSION,
-		'admin_email'      => (string) get_option( 'admin_email' ),
-		'db_server'        => (string) $db_server,
-		'php_memory_limit' => (string) ini_get( 'memory_limit' ),
-		'wp_memory_limit'  => (string) WP_MEMORY_LIMIT,
+		'schema_version' => OMAKASE_SYNC_ENVIRONMENT_SCHEMA_VERSION,
+		'php_version'    => PHP_VERSION,
+		'admin_email'    => (string) get_option( 'admin_email' ),
 	);
 }
 
