@@ -3,7 +3,7 @@
 Plugin Name: Omakase Sync
 Plugin URI:  https://www.m-g-n.me
 Description: 親サーバへWP情報を定期送信
-Version:     0.2.23
+Version:     0.2.24
 Author:      megane9988
 License:     GPLv2 or later
 Text Domain: omakase-sync
@@ -17,6 +17,12 @@ if ( ! defined( 'ABSPATH' ) ) {
 // 定数の宣言
 define( 'OMAKASE_SYNC_PATH', untrailingslashit( plugin_dir_path( __FILE__ ) ) . '/' ); // このプラグインのパス.
 define( 'OMAKASE_SYNC_BASENAME', plugin_basename( __FILE__ ) );
+// 環境情報（environment）の形式のバージョン。親サーバと取り決めた形を変えるときに上げる.
+define( 'OMAKASE_SYNC_ENVIRONMENT_SCHEMA_VERSION', 1 );
+// 環境情報は内容が変わらなければこの間隔でだけ送る.
+define( 'OMAKASE_SYNC_ENVIRONMENT_INTERVAL', DAY_IN_SECONDS );
+// 前回送った環境情報の記録（ハッシュと送信時刻）を持つオプション名.
+define( 'OMAKASE_SYNC_ENVIRONMENT_SENT_OPTION', 'omakase_sync_environment_sent' );
 
 /**
  * プラグインのアップデートを管理するクラス
@@ -121,8 +127,62 @@ function omakase_clear_cron_event() {
 }
 
 /**
+ * 親サーバへ送る環境情報を集める
+ *
+ * 送るのはここに書いた項目だけ（許可リスト方式）。サイトヘルスの情報には
+ * サーバーの絶対パスや DB の接続情報なども含まれるため、まるごとは送らない。
+ * WP_Debug_Data::debug_data() は WordPress.org への通信を伴い重いので使わない。
+ * 項目を増やすときは、ここに足す。
+ *
+ * 管理者メールアドレスを含むため、ログには出さないこと。
+ *
+ * @return array 環境情報
+ */
+function omakase_collect_environment() {
+	return array(
+		'schema_version' => OMAKASE_SYNC_ENVIRONMENT_SCHEMA_VERSION,
+		'php_version'    => PHP_VERSION,
+		'admin_email'    => (string) get_option( 'admin_email' ),
+	);
+}
+
+/**
+ * 環境情報のハッシュを返す（前回送った内容と変わったかの判定に使う）
+ *
+ * @param array $environment 環境情報.
+ * @return string
+ */
+function omakase_environment_hash( $environment ) {
+	return md5( wp_json_encode( $environment ) );
+}
+
+/**
+ * 環境情報を今回の送信に含めるか判定する
+ *
+ * 前回送った内容と変わったとき、または前回から1日以上たったときだけ送る。
+ * 親サーバは環境情報が無い同期では前回の内容を残すので、毎回送る必要はない。
+ *
+ * @param array       $environment 今回の環境情報.
+ * @param array|false $last        前回送った記録（hash, sent_at）。未送信なら false.
+ * @param int         $now         現在時刻（UNIX 時刻）.
+ * @return bool
+ */
+function omakase_should_send_environment( $environment, $last, $now ) {
+	if ( ! is_array( $last ) || ! isset( $last['hash'], $last['sent_at'] ) ) {
+		return true;
+	}
+
+	if ( omakase_environment_hash( $environment ) !== $last['hash'] ) {
+		return true;
+	}
+
+	return ( $now - (int) $last['sent_at'] ) >= OMAKASE_SYNC_ENVIRONMENT_INTERVAL;
+}
+
+/**
  * 5分ごとに呼ばれる関数
  *  - 親サーバへWordPressバージョン、プラグイン一覧を送信
+ *  - 環境情報は内容が変わったときか1日1回だけ添える
  */
 add_action( 'omakase_hourly_sync_event', 'omakase_send_site_data_to_parent' );
 function omakase_send_site_data_to_parent() {
@@ -172,6 +232,13 @@ function omakase_send_site_data_to_parent() {
 		'plugins'           => $plugins_data,
 	);
 
+	// 環境情報は内容が変わったときか1日1回だけ添える.
+	$environment      = omakase_collect_environment();
+	$send_environment = omakase_should_send_environment( $environment, get_option( OMAKASE_SYNC_ENVIRONMENT_SENT_OPTION ), time() );
+	if ( $send_environment ) {
+		$body['environment'] = $environment;
+	}
+
 	// 親サーバのエンドポイント (例)
 	$url = 'https://manage.megane9988.com/api/v1/sites/' . intval( $site_id ) . '/sync';
 
@@ -198,6 +265,16 @@ function omakase_send_site_data_to_parent() {
 		if ( $status_code < 200 || $status_code >= 300 ) {
 			error_log( 'Omakase Sync Error: Unexpected response code: ' . $status_code );
 			error_log( 'Omakase Sync Error: Response Body: ' . wp_remote_retrieve_body( $response ) );
+		} elseif ( $send_environment ) {
+			// 届いたときだけ記録する。失敗したら次の同期でもう一度送る.
+			update_option(
+				OMAKASE_SYNC_ENVIRONMENT_SENT_OPTION,
+				array(
+					'hash'    => omakase_environment_hash( $environment ),
+					'sent_at' => time(),
+				),
+				false
+			);
 		}
 	}
 }
@@ -236,6 +313,9 @@ function omakase_settings_page() {
 		} elseif ( isset( $_POST['omakase_clear_api_key'] ) ) {
 			delete_option( 'omakase_api_key' );
 		}
+
+		// 送り先が変わったかもしれないので、次の同期で環境情報を送り直す.
+		delete_option( OMAKASE_SYNC_ENVIRONMENT_SENT_OPTION );
 
 		echo '<div class="updated"><p>設定を保存しました。</p></div>';
 	}
