@@ -64,14 +64,25 @@ jobs:
           prerelease: false
 
       # release用のzip作成
+      # WordPressはZIP直下に単一フォルダがない場合、一時展開ディレクトリ名
+      # （omakase-sync-XXXX）をそのままプラグインディレクトリ名に使ってしまう。
+      # そのため必ず omakase-sync/ フォルダを最上位に含める。
+      # 除外対象は .gitattributes の export-ignore で管理する。
       - name: Zip Release
-        uses: TheDoctor0/zip-release@b57d897cb5d60cb78b51a507f63fa184cfe35554 # 0.7.6
-        with:
-          filename: ${{ env.ZIP_FILENAME }}
-          exclusions: '*.git* /*node_modules/* .editorconfig /*src/*scss/*'
-          directory: '.'
-          path: '.'
-          type: 'zip'
+        run: |
+          mkdir -p "build/${PLUGIN_SLUG}"
+          git archive HEAD | tar -x -C "build/${PLUGIN_SLUG}"
+          (cd build && zip -r "../${ZIP_FILENAME}" "${PLUGIN_SLUG}")
+          unzip -l "${ZIP_FILENAME}"
+          # 最上位がプラグインフォルダ1つだけであることを検証する
+          TOP_LEVEL=$(zipinfo -1 "${ZIP_FILENAME}" | cut -d/ -f1 | sort -u)
+          if [ "${TOP_LEVEL}" != "${PLUGIN_SLUG}" ]; then
+            echo "ZIPの最上位が ${PLUGIN_SLUG}/ ではありません: ${TOP_LEVEL}"
+            exit 1
+          fi
+          test -f "build/${PLUGIN_SLUG}/${PLUGIN_SLUG}.php"
+        env:
+          PLUGIN_SLUG: 'omakase-sync'
 
       # releaseにzipファイルを添付
       - name: Upload Release Asset
