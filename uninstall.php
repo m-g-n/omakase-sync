@@ -21,6 +21,7 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 function omakase_sync_delete_site_options() {
 	delete_option( 'omakase_site_id' );
 	delete_option( 'omakase_api_key' );
+	delete_option( 'omakase_sync_environment_sent' );
 }
 
 // スケジュール済みイベントを解除する.
