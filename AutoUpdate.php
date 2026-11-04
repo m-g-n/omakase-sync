@@ -51,7 +51,8 @@ class AutoUpdate {
 		// プラグインディレクトリ名を取得
 		$plugin_dir_name = dirname( OMAKASE_SYNC_BASENAME );
 		// プラグインデータを取得
-		$plugin_data = get_plugin_data( OMAKASE_SYNC_PATH . $plugin_dir_name . '.php' );
+		// ディレクトリ名とメインファイル名が一致しない環境でも読めるよう、実ファイル名を使う
+		$plugin_data = get_plugin_data( OMAKASE_SYNC_PATH . basename( OMAKASE_SYNC_BASENAME ) );
 
 		// プロパティに値を設定
 		$this->plugin_slug = $plugin_dir_name;
@@ -125,6 +126,86 @@ class AutoUpdate {
 			}
 		}
 		return $transient;
+	}
+
+	/**
+	 * 更新時の展開ディレクトリ名を現在のプラグインディレクトリ名に揃える
+	 *
+	 * WordPressはZIP直下に単一フォルダがない場合、一時展開ディレクトリ名
+	 * （例: omakase-sync-31HQlffLKfPSWo5k）をそのままプラグインディレクトリ名に使う。
+	 * その結果、更新のたびにディレクトリ名が変わり有効化状態も外れるため、
+	 * このプラグインの更新に限り展開元を現在のディレクトリ名へ移し替える。
+	 *
+	 * @param string|\WP_Error $source        展開されたソースのパス。
+	 * @param string           $remote_source 一時展開ディレクトリのパス。
+	 * @param \WP_Upgrader     $upgrader      アップグレーダーインスタンス。
+	 * @param array            $hook_extra    追加情報。
+	 * @return string|\WP_Error 修正後のソースパス、またはエラー。
+	 */
+	public static function fix_source_directory( $source, $remote_source, $upgrader, $hook_extra = array() ) {
+		global $wp_filesystem;
+
+		if ( \is_wp_error( $source ) ) {
+			return $source;
+		}
+
+		// このプラグインの更新以外は対象外
+		if ( ! \is_array( $hook_extra ) || empty( $hook_extra['plugin'] ) || OMAKASE_SYNC_BASENAME !== $hook_extra['plugin'] ) {
+			return $source;
+		}
+
+		if ( ! \is_object( $wp_filesystem ) ) {
+			return $source;
+		}
+
+		$expected_dir_name = \dirname( OMAKASE_SYNC_BASENAME );
+		// 単一ファイルプラグイン扱い（'.'）や不正値の場合は何もしない
+		if ( '.' === $expected_dir_name || '' === $expected_dir_name ) {
+			return $source;
+		}
+
+		$remote_source = \untrailingslashit( $remote_source );
+		$source_path   = \untrailingslashit( $source );
+		$expected_path = $remote_source . '/' . $expected_dir_name;
+
+		// 既に期待するディレクトリ名なら何もしない
+		if ( $source_path === $expected_path ) {
+			return \trailingslashit( $expected_path );
+		}
+
+		if ( $wp_filesystem->exists( $expected_path ) ) {
+			return new \WP_Error(
+				'omakase_sync_source_exists',
+				\sprintf( 'Omakase Sync: 展開先ディレクトリ %s が既に存在するため更新を中止しました。', $expected_dir_name )
+			);
+		}
+
+		if ( $source_path === $remote_source ) {
+			// ZIP直下にファイルが直接置かれている場合: サブディレクトリを作って中身を移す
+			$entries = $wp_filesystem->dirlist( $remote_source );
+			if ( ! \is_array( $entries ) || ! $wp_filesystem->mkdir( $expected_path, FS_CHMOD_DIR ) ) {
+				return new \WP_Error(
+					'omakase_sync_source_mkdir_failed',
+					'Omakase Sync: 更新ファイルの展開ディレクトリを作成できませんでした。'
+				);
+			}
+			foreach ( \array_keys( $entries ) as $entry ) {
+				if ( ! $wp_filesystem->move( $remote_source . '/' . $entry, $expected_path . '/' . $entry ) ) {
+					return new \WP_Error(
+						'omakase_sync_source_move_failed',
+						\sprintf( 'Omakase Sync: 更新ファイル %s を移動できませんでした。', $entry )
+					);
+				}
+			}
+		} elseif ( ! $wp_filesystem->move( $source_path, $expected_path ) ) {
+			// ZIP直下のフォルダ名が異なる場合: フォルダ名を変更する
+			return new \WP_Error(
+				'omakase_sync_source_rename_failed',
+				'Omakase Sync: 更新ファイルの展開ディレクトリ名を変更できませんでした。'
+			);
+		}
+
+		return \trailingslashit( $expected_path );
 	}
 
 	/**

@@ -30,6 +30,9 @@ add_action(
 		new OmakaseSync\AutoUpdate();
 	}
 );
+// 更新時にプラグインディレクトリ名が変わらないよう補正する
+// 自動更新（WP-Cron）経由でも効くよう admin_init の外で登録する
+add_filter( 'upgrader_source_selection', array( 'OmakaseSync\AutoUpdate', 'fix_source_directory' ), 10, 4 );
 
 /**
  * CRONスケジュール・イベントの自動修復を設定
