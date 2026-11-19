@@ -29,13 +29,10 @@ define( 'OMAKASE_SYNC_ENVIRONMENT_SENT_OPTION', 'omakase_sync_environment_sent' 
  * GitHubページのjsonから最新のリリース情報を取得し、WordPressのアップデート画面に表示する
  */
 require_once OMAKASE_SYNC_PATH . 'AutoUpdate.php';
-// 管理画面内のみAutoUpdateを実行
-add_action(
-	'admin_init',
-	function () {
-		new OmakaseSync\AutoUpdate();
-	}
-);
+// 更新情報を WordPress の更新確認に渡す
+// 自動更新（WP-Cron）でも更新を検知できるよう admin_init の外で登録する
+// フィルター名のホスト名は、ヘッダーの Update URI のホスト名と揃えること（違うと呼ばれない）
+add_filter( 'update_plugins_m-g-n.github.io', array( 'OmakaseSync\AutoUpdate', 'filter_update_info' ), 10, 3 );
 // 更新時にプラグインディレクトリ名が変わらないよう補正する
 // 自動更新（WP-Cron）経由でも効くよう admin_init の外で登録する
 add_filter( 'upgrader_source_selection', array( 'OmakaseSync\AutoUpdate', 'fix_source_directory' ), 10, 4 );
