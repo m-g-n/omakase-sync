@@ -45,47 +45,111 @@ class AutoUpdate {
 			return $update;
 		}
 
-		$api_url = isset( $plugin_data['UpdateURI'] ) ? $plugin_data['UpdateURI'] : '';
-		if ( ! \is_string( $api_url ) || '' === $api_url ) {
+		// バージョンが読めないと比較が常に「更新あり」になり、更新が出続けるため何もしない
+		if ( empty( $plugin_data['Version'] ) || empty( $plugin_data['UpdateURI'] ) ) {
 			return $update;
+		}
+
+		$entry = self::build_update_entry( $plugin_data['UpdateURI'] );
+		return null === $entry ? $update : $entry;
+	}
+
+	/**
+	 * 保存済みの更新情報にこのプラグインが無いときだけ補う（予備の経路）
+	 *
+	 * WordPress は api.wordpress.org への問い合わせに失敗すると、
+	 * update_plugins_{hostname} フィルターを呼ぶ前に更新確認を打ち切る。
+	 * また WordPress 5.8 未満にはこのフィルターが無い。
+	 * そのような場合でも更新と自動更新が止まらないよう、読み出し時に補う。
+	 *
+	 * @param object|false $transient 保存済みの更新情報（update_plugins）。
+	 * @return object|false このプラグインの更新情報を補った更新情報。
+	 */
+	public static function fill_missing_update_entry( $transient ) {
+		if ( ! \is_object( $transient ) ) {
+			return $transient;
+		}
+
+		// 通常の経路で記録済みなら何もしない
+		if ( isset( $transient->response[ OMAKASE_SYNC_BASENAME ] ) || isset( $transient->no_update[ OMAKASE_SYNC_BASENAME ] ) ) {
+			return $transient;
+		}
+
+		// 現在のバージョンと update.json のURLをプラグインヘッダーから読む
+		$headers = \get_file_data(
+			OMAKASE_SYNC_PATH . \basename( OMAKASE_SYNC_BASENAME ),
+			array(
+				'Version'   => 'Version',
+				'UpdateURI' => 'Update URI',
+			)
+		);
+		if ( empty( $headers['Version'] ) || empty( $headers['UpdateURI'] ) ) {
+			return $transient;
+		}
+
+		$entry = self::build_update_entry( $headers['UpdateURI'] );
+		if ( null === $entry ) {
+			return $transient;
+		}
+
+		// WordPress 本体が update_plugins_{hostname} の結果を記録するときと同じ形にそろえる
+		$entry['id']          = $headers['UpdateURI'];
+		$entry['plugin']      = OMAKASE_SYNC_BASENAME;
+		$entry['new_version'] = $entry['version'];
+		if ( \version_compare( $entry['new_version'], $headers['Version'], '>' ) ) {
+			$transient->response[ OMAKASE_SYNC_BASENAME ] = (object) $entry;
+		} else {
+			$transient->no_update[ OMAKASE_SYNC_BASENAME ] = (object) $entry;
+		}
+
+		return $transient;
+	}
+
+	/**
+	 * update.json から、WordPress に渡す更新情報を組み立てる
+	 *
+	 * @param string $api_url update.json のURL。
+	 * @return array|null 更新情報（slug・version・package・url）。取得できない・信頼できない場合は null。
+	 */
+	private static function build_update_entry( $api_url ) {
+		if ( ! \is_string( $api_url ) || '' === $api_url ) {
+			return null;
 		}
 
 		// update.json を取得し、必要な項目がそろっているかを確認する
 		$update_info = self::fetch_update_info( $api_url );
-		if ( ! \is_array( $update_info )
-			|| empty( $update_info['version'] ) || ! \is_string( $update_info['version'] )
+		if ( empty( $update_info['version'] ) || ! \is_string( $update_info['version'] )
 			|| empty( $update_info['package'] ) ) {
-			return $update;
+			return null;
 		}
 
 		// update.json が改ざんされても任意のZIPを入れないよう、配布元を検証する
 		if ( ! self::is_trusted_package_url( $update_info['package'] ) ) {
-			return $update;
+			return null;
 		}
 
-		// WordPress に渡す更新情報を組み立てる
-		$result = array(
+		$entry = array(
 			'slug'    => \dirname( OMAKASE_SYNC_BASENAME ),
 			'version' => $update_info['version'],
 			'package' => $update_info['package'],
 		);
 		if ( ! empty( $update_info['url'] ) && \is_string( $update_info['url'] ) ) {
-			$result['url'] = \esc_url_raw( $update_info['url'] );
+			$entry['url'] = \esc_url_raw( $update_info['url'] );
 		}
 
-		return $result;
+		return $entry;
 	}
 
 	/**
 	 * update.json を取得する（結果はキャッシュする）
 	 *
 	 * @param string $api_url update.json のURL。
-	 * @return array|null デコードした update.json の中身。取得・解析に失敗した場合は空配列か null。
+	 * @return array デコードした update.json の中身。取得・解析に失敗した場合は空配列。
 	 */
 	private static function fetch_update_info( $api_url ) {
 		// キャッシュがあればそれを使う
 		$update_info = \get_site_transient( self::UPDATE_INFO_CACHE_KEY );
-		if ( false !== $update_info ) {
+		if ( \is_array( $update_info ) ) {
 			return $update_info;
 		}
 
@@ -99,15 +163,18 @@ class AutoUpdate {
 		);
 
 		if ( ! \is_wp_error( $response ) && 200 === \wp_remote_retrieve_response_code( $response ) ) {
-			// 成功時は6時間キャッシュする
 			$update_info = \json_decode( \wp_remote_retrieve_body( $response ), true );
-			\set_site_transient( self::UPDATE_INFO_CACHE_KEY, $update_info, 6 * HOUR_IN_SECONDS );
-		} else {
-			// 失敗時も短時間キャッシュし、更新確認のたびに再試行しないようにする
-			$update_info = array();
-			\set_site_transient( self::UPDATE_INFO_CACHE_KEY, $update_info, 15 * MINUTE_IN_SECONDS );
 		}
 
+		// 200 でも中身が JSON の連想配列でなければ（エラーページ等）失敗として扱う
+		if ( ! \is_array( $update_info ) ) {
+			// 失敗時も短時間キャッシュし、更新確認のたびに再試行しないようにする
+			\set_site_transient( self::UPDATE_INFO_CACHE_KEY, array(), 15 * MINUTE_IN_SECONDS );
+			return array();
+		}
+
+		// 成功時は6時間キャッシュする
+		\set_site_transient( self::UPDATE_INFO_CACHE_KEY, $update_info, 6 * HOUR_IN_SECONDS );
 		return $update_info;
 	}
 

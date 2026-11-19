@@ -33,6 +33,8 @@ require_once OMAKASE_SYNC_PATH . 'AutoUpdate.php';
 // 自動更新（WP-Cron）でも更新を検知できるよう admin_init の外で登録する
 // フィルター名のホスト名は、ヘッダーの Update URI のホスト名と揃えること（違うと呼ばれない）
 add_filter( 'update_plugins_m-g-n.github.io', array( 'OmakaseSync\AutoUpdate', 'filter_update_info' ), 10, 3 );
+// 上のフィルターが呼ばれなかったとき（api.wordpress.org に届かない、WordPress 5.8 未満）の予備
+add_filter( 'site_transient_update_plugins', array( 'OmakaseSync\AutoUpdate', 'fill_missing_update_entry' ) );
 // 更新時にプラグインディレクトリ名が変わらないよう補正する
 // 自動更新（WP-Cron）経由でも効くよう admin_init の外で登録する
 add_filter( 'upgrader_source_selection', array( 'OmakaseSync\AutoUpdate', 'fix_source_directory' ), 10, 4 );
