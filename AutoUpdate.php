@@ -18,114 +18,164 @@ namespace OmakaseSync;
 class AutoUpdate {
 
 	/**
-	 * アップデートAPI URL
+	 * 更新情報（update.json の中身）を保存するキャッシュのキー
+	 *
+	 * uninstall.php でも同じキーを削除しているため、変える場合は両方を揃えること。
 	 *
 	 * @var string
 	 */
-	private $api_url;
+	const UPDATE_INFO_CACHE_KEY = 'omakase_sync_plugin_check';
 
 	/**
-	 * プラグインスラッグ
+	 * WordPress の更新確認にこのプラグインの更新情報を渡す
 	 *
-	 * @var string
-	 */
-	private $plugin_slug;
-
-	/**
-	 * 現在のプラグインバージョン
+	 * プラグインヘッダーの Update URI のホスト名ごとに WordPress が呼ぶ
+	 * update_plugins_{hostname} フィルターのコールバック。
+	 * 返した情報を WordPress が現在のバージョンと比べ、新しければ「更新あり」、
+	 * そうでなければ「最新」として記録する。WP-Cron の自動更新からも呼ばれる。
 	 *
-	 * @var string
+	 * @param array|false $update      他の処理が返した更新情報。未設定なら false。
+	 * @param array       $plugin_data プラグインヘッダーの情報（Version・UpdateURI など）。
+	 * @param string      $plugin_file プラグインのパス（plugins ディレクトリからの相対パス）。
+	 * @return array|false このプラグインの更新情報。取得できなければ $update をそのまま返す。
 	 */
-	private $version;
-
-	/**
-	 * コンストラクタ
-	 *
-	 * プラグイン情報を取得しアップデートフィルターを設定
-	 */
-	public function __construct() {
-		// プラグインデータ取得関数の存在確認
-		if ( ! function_exists( 'get_plugin_data' ) ) {
-			return;
-		}
-		// プラグインディレクトリ名を取得
-		$plugin_dir_name = dirname( OMAKASE_SYNC_BASENAME );
-		// プラグインデータを取得
-		// ディレクトリ名とメインファイル名が一致しない環境でも読めるよう、実ファイル名を使う
-		$plugin_data = get_plugin_data( OMAKASE_SYNC_PATH . basename( OMAKASE_SYNC_BASENAME ) );
-
-		// プロパティに値を設定
-		$this->plugin_slug = $plugin_dir_name;
-		$this->version     = isset( $plugin_data['Version'] ) ? $plugin_data['Version'] : '';
-		$this->api_url     = isset( $plugin_data['UpdateURI'] ) ? $plugin_data['UpdateURI'] : '';
-
-		// バージョンまたはAPI URLが取得できない場合、比較が常に成立して
-		// 無限に更新を提示してしまうため、フィルターを登録しない
-		if ( '' === $this->version || '' === $this->api_url ) {
-			return;
+	public static function filter_update_info( $update, $plugin_data, $plugin_file ) {
+		// 同じホストを Update URI に使う別のプラグインには手を出さない
+		if ( OMAKASE_SYNC_BASENAME !== $plugin_file ) {
+			return $update;
 		}
 
-		// アップデート確認フィルターを追加
-		add_filter( 'site_transient_update_plugins', array( $this, 'check_for_plugin_update' ) );
+		// バージョンが読めないと比較が常に「更新あり」になり、更新が出続けるため何もしない
+		if ( empty( $plugin_data['Version'] ) || empty( $plugin_data['UpdateURI'] ) ) {
+			return $update;
+		}
+
+		$entry = self::build_update_entry( $plugin_data['UpdateURI'] );
+		return null === $entry ? $update : $entry;
 	}
 
 	/**
-	 * プラグインアップデート確認処理
+	 * 保存済みの更新情報にこのプラグインが無いときだけ補う（予備の経路）
 	 *
-	 * @param object $transient アップデート情報オブジェクト
-	 * @return object 更新されたアップデート情報オブジェクト
+	 * WordPress は api.wordpress.org への問い合わせに失敗すると、
+	 * update_plugins_{hostname} フィルターを呼ぶ前に更新確認を打ち切る。
+	 * また WordPress 5.8 未満にはこのフィルターが無い。
+	 * そのような場合でも更新と自動更新が止まらないよう、読み出し時に補う。
+	 *
+	 * @param object|false $transient 保存済みの更新情報（update_plugins）。
+	 * @return object|false このプラグインの更新情報を補った更新情報。
 	 */
-	public function check_for_plugin_update( $transient ) {
-		// チェック対象が空の場合は処理終了
-		if ( empty( $transient->checked ) ) {
+	public static function fill_missing_update_entry( $transient ) {
+		if ( ! \is_object( $transient ) ) {
 			return $transient;
 		}
-		// キャッシュ確認
-		$cache_key    = 'omakase_sync_plugin_check';
-		$api_response = get_site_transient( $cache_key );
 
-		// キャッシュが存在しない場合はAPI呼び出し
-		if ( false === $api_response ) {
-			// APIからアップデート情報を取得
-			$response = wp_remote_get(
-				$this->api_url,
-				array(
-					'timeout'   => 15,
-					'sslverify' => true,
-				)
-			);
-			// レスポンス正常確認
-			if ( ! is_wp_error( $response ) && wp_remote_retrieve_response_code( $response ) === 200 ) {
-				// JSONをデコード
-				$api_response = json_decode( wp_remote_retrieve_body( $response ), true );
-				// 6時間キャッシュ保存
-				set_site_transient( $cache_key, $api_response, 6 * HOUR_IN_SECONDS );
-			} else {
-				// 失敗時も短時間キャッシュし、管理画面を開くたびに再試行しないようにする
-				set_site_transient( $cache_key, array(), 15 * MINUTE_IN_SECONDS );
-			}
+		// 通常の経路で記録済みなら何もしない
+		if ( isset( $transient->response[ OMAKASE_SYNC_BASENAME ] ) || isset( $transient->no_update[ OMAKASE_SYNC_BASENAME ] ) ) {
+			return $transient;
 		}
 
-		// API応答が有効かつ配列形式の場合のアップデート情報確認
-		if ( $api_response && is_array( $api_response ) && isset( $api_response['version'] ) && isset( $api_response['package'] ) ) {
-			// バージョン比較：現在より新しい場合
-			if ( version_compare( $this->version, $api_response['version'], '<' ) ) {
-				// 配布元として信頼できるURLかを検証する
-				if ( ! $this->is_trusted_package_url( $api_response['package'] ) ) {
-					return $transient;
-				}
-
-				// アップデート情報を作成
-				$plugin_data = array(
-					'slug'        => $this->plugin_slug,
-					'new_version' => $api_response['version'],
-					'package'     => $api_response['package'],
-				);
-				// トランジェントにアップデート情報を設定
-				$transient->response[ OMAKASE_SYNC_BASENAME ] = (object) $plugin_data;
-			}
+		// 現在のバージョンと update.json のURLをプラグインヘッダーから読む
+		$headers = \get_file_data(
+			OMAKASE_SYNC_PATH . \basename( OMAKASE_SYNC_BASENAME ),
+			array(
+				'Version'   => 'Version',
+				'UpdateURI' => 'Update URI',
+			)
+		);
+		if ( empty( $headers['Version'] ) || empty( $headers['UpdateURI'] ) ) {
+			return $transient;
 		}
+
+		$entry = self::build_update_entry( $headers['UpdateURI'] );
+		if ( null === $entry ) {
+			return $transient;
+		}
+
+		// WordPress 本体が update_plugins_{hostname} の結果を記録するときと同じ形にそろえる
+		$entry['id']          = $headers['UpdateURI'];
+		$entry['plugin']      = OMAKASE_SYNC_BASENAME;
+		$entry['new_version'] = $entry['version'];
+		if ( \version_compare( $entry['new_version'], $headers['Version'], '>' ) ) {
+			$transient->response[ OMAKASE_SYNC_BASENAME ] = (object) $entry;
+		} else {
+			$transient->no_update[ OMAKASE_SYNC_BASENAME ] = (object) $entry;
+		}
+
 		return $transient;
+	}
+
+	/**
+	 * update.json から、WordPress に渡す更新情報を組み立てる
+	 *
+	 * @param string $api_url update.json のURL。
+	 * @return array|null 更新情報（slug・version・package・url）。取得できない・信頼できない場合は null。
+	 */
+	private static function build_update_entry( $api_url ) {
+		if ( ! \is_string( $api_url ) || '' === $api_url ) {
+			return null;
+		}
+
+		// update.json を取得し、必要な項目がそろっているかを確認する
+		$update_info = self::fetch_update_info( $api_url );
+		if ( empty( $update_info['version'] ) || ! \is_string( $update_info['version'] )
+			|| empty( $update_info['package'] ) ) {
+			return null;
+		}
+
+		// update.json が改ざんされても任意のZIPを入れないよう、配布元を検証する
+		if ( ! self::is_trusted_package_url( $update_info['package'] ) ) {
+			return null;
+		}
+
+		$entry = array(
+			'slug'    => \dirname( OMAKASE_SYNC_BASENAME ),
+			'version' => $update_info['version'],
+			'package' => $update_info['package'],
+		);
+		if ( ! empty( $update_info['url'] ) && \is_string( $update_info['url'] ) ) {
+			$entry['url'] = \esc_url_raw( $update_info['url'] );
+		}
+
+		return $entry;
+	}
+
+	/**
+	 * update.json を取得する（結果はキャッシュする）
+	 *
+	 * @param string $api_url update.json のURL。
+	 * @return array デコードした update.json の中身。取得・解析に失敗した場合は空配列。
+	 */
+	private static function fetch_update_info( $api_url ) {
+		// キャッシュがあればそれを使う
+		$update_info = \get_site_transient( self::UPDATE_INFO_CACHE_KEY );
+		if ( \is_array( $update_info ) ) {
+			return $update_info;
+		}
+
+		// update.json を取得する
+		$response = \wp_remote_get(
+			$api_url,
+			array(
+				'timeout'   => 15,
+				'sslverify' => true,
+			)
+		);
+
+		if ( ! \is_wp_error( $response ) && 200 === \wp_remote_retrieve_response_code( $response ) ) {
+			$update_info = \json_decode( \wp_remote_retrieve_body( $response ), true );
+		}
+
+		// 200 でも中身が JSON の連想配列でなければ（エラーページ等）失敗として扱う
+		if ( ! \is_array( $update_info ) ) {
+			// 失敗時も短時間キャッシュし、更新確認のたびに再試行しないようにする
+			\set_site_transient( self::UPDATE_INFO_CACHE_KEY, array(), 15 * MINUTE_IN_SECONDS );
+			return array();
+		}
+
+		// 成功時は6時間キャッシュする
+		\set_site_transient( self::UPDATE_INFO_CACHE_KEY, $update_info, 6 * HOUR_IN_SECONDS );
+		return $update_info;
 	}
 
 	/**
@@ -217,7 +267,7 @@ class AutoUpdate {
 	 * @param mixed $package_url 検証対象のURL。
 	 * @return bool 信頼できる場合 true。
 	 */
-	private function is_trusted_package_url( $package_url ) {
+	private static function is_trusted_package_url( $package_url ) {
 		if ( ! is_string( $package_url ) || '' === $package_url ) {
 			return false;
 		}
